@@ -12,11 +12,11 @@
 var AWS = require("aws-sdk");
 
 const s3 = new AWS.S3({
-    region: 'us-east-1'
+    region: 'ap-northeast-1'
 });
 
 const ssm = new AWS.SSM({
-    region: 'us-east-1'
+    region: 'ap-northeast-1'
 });
 
 async function readDragons() {
@@ -52,7 +52,7 @@ function readDragonsFromS3(bucketName, fileName) {
  
   s3.selectObjectContent({
      Bucket: bucketName,
-     Expression: 'select * from s3object s',
+     Expression: "select * from S3Object[*][*] s",
      ExpressionType: 'SQL',
      Key: fileName,
      InputSerialization: {
@@ -76,11 +76,25 @@ function readDragonsFromS3(bucketName, fileName) {
 }
 
 function handleData(data) {
+  var event = data.Payload;
+  const resultStream = [];
   data.Payload.on('data', (event) => {
 		if (event.Records) {
+      resultStream.push(event.Records.Payload);
 			console.log(event.Records.Payload.toString());
 		}
 	});
+  
+  event.on("end", function () {
+      let recordsString = Buffer.concat(resultStream).toString('utf8');
+      // remove any trailing commas
+      recordsString = recordsString.replace(/\,$/, '');
+      // parse as an array
+      recordsString = `[${recordsString}]`;
+      let records = JSON.parse(recordsString);
+
+      console.log(JSON.stringify(records));
+  });
 }
 
 readDragons();
